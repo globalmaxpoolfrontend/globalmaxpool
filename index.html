@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlobalMaxPool — DeFi Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#050a07;--surface:rgba(15,28,18,.88);--border:rgba(0,255,136,.12);
+  --green:#00ff88;--green-dim:rgba(0,255,136,.13);--green-glow:rgba(0,255,136,.35);
+  --gold:#f5c842;--gold-dim:rgba(245,200,66,.12);--red:#ff4d6d;--orange:#ff8c42;
+  --text:#d4f0df;--muted:#557060;--radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,255,136,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,.04) 1px,transparent 1px);
+  background-size:48px 48px;animation:gridDrift 20s linear infinite;}
+@keyframes gridDrift{0%{background-position:0 0}100%{background-position:48px 48px}}
+.blob{position:fixed;border-radius:50%;filter:blur(120px);opacity:.1;pointer-events:none;z-index:0;animation:blobF 8s ease-in-out infinite;}
+.blob-1{width:600px;height:600px;background:#00ff88;top:-200px;left:-200px;}
+.blob-2{width:400px;height:400px;background:#f5c842;bottom:-100px;right:-100px;animation-delay:4s;}
+@keyframes blobF{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(30px) scale(1.05)}}
+.app{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:24px 20px 60px;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 0 40px;flex-wrap:wrap;gap:16px;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--green),#00ccaa);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px var(--green-glow);}
+.logo-text{font-size:22px;font-weight:800;letter-spacing:-.5px;}.logo-text span{color:var(--green);}
+.logo-badge{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);background:rgba(0,255,136,.06);border:1px solid var(--border);padding:4px 10px;border-radius:20px;margin-top:2px;display:block;}
+#chain-name{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.15);}
+#connect-btn{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:12px 24px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--green),#00d4aa);color:#050a07;box-shadow:0 4px 20px rgba(0,255,136,.25);transition:all .2s;}
+#connect-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(0,255,136,.4);}
+#wallet-pill{display:none;align-items:center;gap:10px;background:var(--green-dim);border:1px solid var(--border);border-radius:30px;padding:8px 16px 8px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--green);}
+.wallet-dot{width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#disconnect-btn{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:color .15s;}
+#disconnect-btn:hover{color:var(--red);}
+
+/* BUTTONS */
+.btn{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:12px 24px;border-radius:10px;border:none;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--green),#00d4aa);color:#050a07;box-shadow:0 4px 20px rgba(0,255,136,.25);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(0,255,136,.4);}
+.btn-secondary{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(245,200,66,.25);}
+.btn-secondary:hover{background:rgba(245,200,66,.2);}
+.btn-ghost{background:var(--green-dim);color:var(--green);border:1px solid var(--border);}
+.btn-ghost:hover{background:rgba(0,255,136,.2);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;backdrop-filter:blur(16px);position:relative;overflow:hidden;transition:border-color .2s,transform .2s;animation:fadeUp .5s ease both;}
+.stat-card:hover{border-color:rgba(0,255,136,.25);transform:translateY(-2px);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);opacity:0;transition:opacity .3s;}
+.stat-card:hover::before{opacity:1;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.stat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
+.stat-value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--green);line-height:1;margin-bottom:4px;}
+.stat-value.gold{color:var(--gold);}.stat-value.muted{color:var(--text);font-size:18px;}
+.stat-sub{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.stats-grid .stat-card:nth-child(1){animation-delay:.04s;}.stats-grid .stat-card:nth-child(2){animation-delay:.08s;}
+.stats-grid .stat-card:nth-child(3){animation-delay:.12s;}.stats-grid .stat-card:nth-child(4){animation-delay:.16s;}
+.stats-grid .stat-card:nth-child(5){animation-delay:.20s;}
+
+/* PANELS */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+@media(max-width:680px){.panels{grid-template-columns:1fr;}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(16px);animation:fadeUp .5s ease both;}
+.panel-title{font-size:15px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px;color:var(--text);}
+.panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+.deposit-form{display:flex;flex-direction:column;gap:14px;}
+.quick-amounts{display:flex;gap:8px;flex-wrap:wrap;}
+.quick-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:rgba(0,255,136,.05);color:var(--muted);cursor:pointer;transition:all .15s;}
+.quick-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+input{background:rgba(0,0,0,.4);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px 14px;border-radius:10px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%;}
+input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,255,136,.1);}
+input::placeholder{color:var(--muted);}
+label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:2px;}
+.info-key{font-family:'IBM Plex Mono',monospace;color:var(--muted);font-size:12px;}
+.info-val{font-family:'IBM Plex Mono',monospace;font-weight:500;}
+.info-val.green{color:var(--green);}.info-val.gold{color:var(--gold);}
+.claim-info{background:rgba(0,0,0,.2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.progress-wrap{margin-top:4px;}
+.progress-header{display:flex;justify-content:space-between;margin-bottom:8px;}
+.progress-bar{height:6px;background:rgba(255,255,255,.06);border-radius:10px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--green),#00ccff);transition:width .6s ease;box-shadow:0 0 10px rgba(0,255,136,.4);}
+
+/* REFERRAL CARD */
+.ref-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(16px);margin-bottom:24px;animation:fadeUp .5s ease both;}
+.income-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.iscard{background:rgba(0,0,0,.28);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+.iscard-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.iscard-value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;line-height:1;}
+.iscard-value.gold{color:var(--gold);}.iscard-value.green{color:var(--green);}
+.iscard-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* LEVEL TABLE — only Level, Rate, Need, Status columns */
+.lit-wrap{overflow-x:auto;margin-top:4px;}
+.lit{width:100%;border-collapse:collapse;}
+.lit thead th{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+.lit tbody td{font-family:'IBM Plex Mono',monospace;font-size:13px;padding:11px 12px;border-bottom:1px solid rgba(0,255,136,.05);vertical-align:middle;}
+.lit tbody tr:last-child td{border-bottom:none;}
+.lit tbody tr:hover td{background:rgba(0,255,136,.025);}
+.lvl-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;font-size:11px;font-weight:700;border:1px solid;}
+.lb-1{background:rgba(245,200,66,.15);color:#f5c842;border-color:rgba(245,200,66,.3);}
+.lb-2{background:rgba(0,255,136,.12);color:#00ff88;border-color:rgba(0,255,136,.25);}
+.lb-3{background:rgba(0,220,150,.1);color:#00dc96;border-color:rgba(0,220,150,.25);}
+.lb-4{background:rgba(0,204,170,.1);color:#00ccaa;border-color:rgba(0,204,170,.25);}
+.lb-5{background:rgba(59,153,252,.1);color:#3b99fc;border-color:rgba(59,153,252,.2);}
+.lb-6{background:rgba(80,130,255,.1);color:#5082ff;border-color:rgba(80,130,255,.2);}
+.lb-7{background:rgba(113,72,255,.1);color:#9b7dff;border-color:rgba(113,72,255,.2);}
+.lb-8{background:rgba(160,72,255,.1);color:#c07dff;border-color:rgba(160,72,255,.2);}
+.lb-9{background:rgba(255,77,109,.1);color:#ff8fa8;border-color:rgba(255,77,109,.2);}
+.rate-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 9px;border-radius:20px;background:rgba(0,255,136,.07);color:var(--green);border:1px solid rgba(0,255,136,.15);}
+.s-active{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 9px;border-radius:20px;background:rgba(0,255,136,.08);color:var(--green);border:1px solid rgba(0,255,136,.18);}
+.s-locked{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 9px;border-radius:20px;background:rgba(255,77,109,.07);color:var(--red);border:1px solid rgba(255,77,109,.18);}
+
+/* REF BOTTOM */
+.ref-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;}
+@media(max-width:540px){.ref-bottom{grid-template-columns:1fr;}}
+.ref-stat-box{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.ref-stat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.ref-stat-value{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--green);}
+.ref-link-row{display:flex;gap:10px;}
+.ref-link-box{flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);word-break:break-all;display:flex;align-items:center;}
+
+/* MISC */
+hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
+#countdown{font-family:'IBM Plex Mono',monospace;font-size:22px;color:var(--gold);text-align:center;padding:12px;letter-spacing:2px;display:none;}
+.tx-link{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:6px;display:block;}
+.tx-link a{color:var(--green);text-decoration:none;}.tx-link a:hover{text-decoration:underline;}
+.chip-g{background:var(--green-dim);color:var(--green);display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 9px;border-radius:20px;}
+.chip-r{background:rgba(255,77,109,.1);color:var(--red);display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 9px;border-radius:20px;}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:currentColor;border-radius:50%;animation:gSpin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes gSpin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:#0f2016;border:1px solid var(--border);border-radius:12px;padding:14px 24px;font-size:14px;font-family:'IBM Plex Mono',monospace;z-index:9999;transition:transform .3s ease;box-shadow:0 8px 40px rgba(0,0,0,.6);max-width:420px;text-align:center;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.success{color:var(--green);border-color:rgba(0,255,136,.3);}
+#toast.error{color:var(--red);border-color:rgba(255,77,109,.3);}
+#toast.info{color:var(--gold);border-color:rgba(245,200,66,.3);}
+footer{margin-top:48px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding-bottom:24px;}
+footer span{color:var(--green);}
+
+/* WALLET MODAL */
+#wm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);z-index:9000;align-items:center;justify-content:center;}
+#wm-overlay.open{display:flex;}
+#wm-box{background:#0b1810;border:1px solid rgba(0,255,136,.22);border-radius:22px;padding:28px 22px 20px;width:100%;max-width:440px;margin:16px;box-shadow:0 28px 90px rgba(0,0,0,.8);animation:wmIn .25s ease;max-height:92vh;overflow-y:auto;}
+@keyframes wmIn{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
+.wm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.wm-title{font-size:18px;font-weight:800;letter-spacing:-.3px;color:#d4f0df;}
+.wm-close{background:none;border:none;color:#557060;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1;transition:color .15s;}
+.wm-close:hover{color:#d4f0df;}
+.wm-list{display:flex;flex-direction:column;gap:9px;}
+.wm-row{display:flex;align-items:center;gap:14px;padding:13px 15px;border-radius:13px;border:1px solid rgba(0,255,136,.12);background:rgba(0,255,136,.04);cursor:pointer;transition:all .2s;}
+.wm-row:hover{border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.09);}
+.wm-row:active{transform:scale(.98);}
+.wm-row.busy{pointer-events:none;opacity:.7;}
+.wm-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;background:rgba(0,0,0,.3);overflow:hidden;}
+.wm-icon img{width:100%;height:100%;object-fit:contain;}
+.wm-name{font-size:15px;font-weight:700;margin-bottom:2px;color:#d4f0df;}
+.wm-desc{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#557060;}
+.wm-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 9px;border-radius:20px;white-space:nowrap;margin-left:auto;}
+.wm-badge.ok{background:rgba(0,255,136,.13);color:#00ff88;border:1px solid rgba(0,255,136,.2);}
+.wm-badge.no{background:rgba(255,77,109,.1);color:#ff4d6d;border:1px solid rgba(255,77,109,.2);}
+.wm-badge.qr{background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.2);}
+.wm-badge.dim{background:rgba(255,255,255,.05);color:#557060;border:1px solid rgba(0,255,136,.08);}
+.wm-sep{display:flex;align-items:center;gap:10px;margin:4px 0;color:#557060;font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.wm-sep::before,.wm-sep::after{content:'';flex:1;height:1px;background:rgba(0,255,136,.12);}
+#wm-net-sel{display:none;background:rgba(0,0,0,.28);border:1px solid rgba(0,255,136,.12);border-radius:12px;padding:14px 12px;}
+#wm-net-sel.open{display:block;}
+.wm-net-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#557060;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.wm-net-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.wm-net-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;padding:9px 6px;border-radius:10px;border:1px solid rgba(0,255,136,.12);background:rgba(0,255,136,.04);color:#557060;cursor:pointer;text-align:center;transition:all .18s;}
+.wm-net-btn:hover{border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.09);color:#00ff88;}
+.wm-net-btn.active{border-color:#00ff88;background:rgba(0,255,136,.14);color:#00ff88;}
+#wm-qr-wrap{display:none;flex-direction:column;align-items:center;gap:12px;padding:16px 14px;border:1px solid rgba(0,255,136,.12);border-radius:14px;background:rgba(0,0,0,.25);}
+#wm-qr-wrap.open{display:flex;}
+.wm-spinner{width:36px;height:36px;border:3px solid rgba(0,255,136,.12);border-top-color:#00ff88;border-radius:50%;animation:wmSpin .7s linear infinite;}
+@keyframes wmSpin{to{transform:rotate(360deg)}}
+.wm-qr-img{background:#fff;border-radius:12px;padding:10px;box-shadow:0 0 0 1px rgba(0,255,136,.15);}
+#wm-qr-canvas{display:block;border-radius:6px;}
+.wm-status{display:flex;align-items:center;gap:8px;width:100%;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:8px 12px;border-radius:8px;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.2);color:#f5c842;}
+.wm-status.green{background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.2);color:#00ff88;}
+.wm-sdot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.wm-uri{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#557060;word-break:break-all;text-align:center;width:100%;border:1px solid rgba(0,255,136,.12);border-radius:8px;padding:8px 10px;background:rgba(0,0,0,.3);cursor:pointer;max-height:48px;overflow:hidden;}
+.wm-uri:hover{color:#d4f0df;}
+.wm-btn-row{display:flex;gap:8px;width:100%;}
+.wm-btn{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:8px 12px;border-radius:9px;border:none;cursor:pointer;flex:1;background:rgba(0,255,136,.1);color:#00ff88;border:1px solid rgba(0,255,136,.18);transition:all .2s;}
+.wm-btn:hover{background:rgba(0,255,136,.2);}
+.wm-err{background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.2);border-radius:10px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#ff4d6d;text-align:center;width:100%;}
+.wm-dl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;}
+.wm-dl-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:10px;border:1px solid rgba(0,255,136,.12);background:rgba(0,255,136,.03);cursor:pointer;transition:all .2s;font-size:10px;font-weight:700;color:#557060;font-family:'IBM Plex Mono',monospace;}
+.wm-dl-btn:hover{border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.1);color:#00ff88;}
+.wm-dl-btn span{font-size:20px;}
+.wm-foot{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#557060;text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,255,136,.08);}
+.wm-foot a{color:#00ff88;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<!-- WALLET MODAL -->
+<div id="wm-overlay">
+  <div id="wm-box">
+    <div class="wm-head"><div class="wm-title">Connect Wallet</div><button class="wm-close" id="wm-close">✕</button></div>
+    <div class="wm-list">
+      <div class="wm-row" id="wm-mm"><div class="wm-icon"><img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" onerror="this.parentNode.textContent='🦊'"/></div><div><div class="wm-name">MetaMask</div><div class="wm-desc">Browser extension wallet</div></div><span class="wm-badge dim" id="bd-mm">…</span></div>
+      <div class="wm-row" id="wm-trust"><div class="wm-icon" style="background:#3375BB;"><img src="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png" onerror="this.parentNode.textContent='🛡️'"/></div><div><div class="wm-name">Trust Wallet</div><div class="wm-desc">Mobile & browser wallet</div></div><span class="wm-badge dim" id="bd-trust">…</span></div>
+      <div class="wm-row" id="wm-tp"><div class="wm-icon" style="background:#2980FE;font-size:24px;">💼</div><div><div class="wm-name">TokenPocket</div><div class="wm-desc">Multi-chain mobile wallet</div></div><span class="wm-badge dim" id="bd-tp">…</span></div>
+      <div class="wm-row" id="wm-cb"><div class="wm-icon" style="background:#1652f0;font-size:24px;">💙</div><div><div class="wm-name">Coinbase Wallet</div><div class="wm-desc">Self-custody by Coinbase</div></div><span class="wm-badge dim" id="bd-cb">…</span></div>
+      <div class="wm-row" id="wm-okx"><div class="wm-icon" style="background:#000;font-size:24px;">⬛</div><div><div class="wm-name">OKX Wallet</div><div class="wm-desc">OKX exchange wallet</div></div><span class="wm-badge dim" id="bd-okx">…</span></div>
+      <div class="wm-row" id="wm-rabby"><div class="wm-icon" style="background:#7148ff;font-size:22px;">🐰</div><div><div class="wm-name">Rabby Wallet</div><div class="wm-desc">DeFi-focused wallet</div></div><span class="wm-badge dim" id="bd-rabby">…</span></div>
+      <div class="wm-row" id="wm-any" style="display:none;"><div class="wm-icon" style="font-size:24px;">🔌</div><div><div class="wm-name">Browser Wallet</div><div class="wm-desc">Any injected web3 wallet</div></div><span class="wm-badge ok">Detected</span></div>
+      <div class="wm-row" id="wm-net-row" style="display:none;"><div class="wm-icon" style="font-size:24px;">🌐</div><div><div class="wm-name">Switch Network</div><div class="wm-desc" id="wm-cur-net">Current: —</div></div><span class="wm-badge qr" id="wm-net-badge">▼ Change</span></div>
+      <div id="wm-net-sel"><div class="wm-net-label">Select Network</div><div class="wm-net-grid" id="wm-net-grid"></div></div>
+      <div class="wm-sep">SCAN WITH MOBILE</div>
+      <div class="wm-row" id="wm-wc">
+        <div class="wm-icon" style="background:linear-gradient(135deg,#3b99fc,#0052ff);"><svg width="26" height="16" viewBox="0 0 300 185" fill="white"><path d="M61.4 36.8c48.8-47.8 128-47.8 176.8 0l5.9 5.8a6 6 0 010 8.7l-20.2 19.8a3.1 3.1 0 01-4.4 0l-8.1-8c-34-33.3-89.3-33.3-123.4 0l-8.7 8.5a3.1 3.1 0 01-4.4 0L54.7 51.8a6 6 0 010-8.7l6.7-6.3zm218.3 40.7l18 17.6a6 6 0 010 8.7l-81.1 79.5a6.2 6.2 0 01-8.8 0l-57.5-56.4a1.6 1.6 0 00-2.2 0l-57.5 56.4a6.2 6.2 0 01-8.8 0L20.5 103.8a6 6 0 010-8.7l18-17.6a6.2 6.2 0 018.8 0l57.5 56.4c.6.6 1.6.6 2.2 0L164.6 77.5a6.2 6.2 0 018.8 0l57.5 56.4c.6.6 1.6.6 2.2 0l57.5-56.4a6.2 6.2 0 018.8 0z"/></svg></div>
+        <div><div class="wm-name">WalletConnect</div><div class="wm-desc">QR scan — 300+ wallets</div></div>
+        <span class="wm-badge qr" id="bd-wc">▼ Show QR</span>
+      </div>
+      <div id="wm-qr-wrap">
+        <div id="wm-qr-loading" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0;"><div class="wm-spinner"></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#557060;">Initializing WalletConnect…</div></div>
+        <div id="wm-qr-ready" style="display:none;flex-direction:column;align-items:center;gap:12px;width:100%;">
+          <div class="wm-qr-img"><canvas id="wm-qr-canvas" width="210" height="210"></canvas></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#d4f0df;text-align:center;">Scan with MetaMask, Trust, TokenPocket…</div>
+          <div class="wm-status" id="wm-qr-status"><div class="wm-sdot"></div><span id="wm-qr-stxt">Waiting for scan…</span></div>
+          <div class="wm-uri" id="wm-uri-box" title="Click to copy">Generating URI…</div>
+          <div class="wm-btn-row">
+            <button class="wm-btn" id="wm-copy-btn">📋 Copy</button>
+            <button class="wm-btn" id="wm-dl-toggle">📱 Apps</button>
+            <button class="wm-btn" id="wm-retry-btn">↺ Retry</button>
+          </div>
+          <div id="wm-dl-panel" style="display:none;width:100%;"><div class="wm-dl-grid" id="wm-dl-grid"></div></div>
+        </div>
+        <div id="wm-qr-error" style="display:none;flex-direction:column;align-items:center;gap:10px;width:100%;"><div class="wm-err" id="wm-err-txt">Error.</div><button class="wm-btn" id="wm-retry-err">↺ Retry</button></div>
+      </div>
+    </div>
+    <div class="wm-foot">WalletConnect v2 · <a href="https://cloud.walletconnect.com" target="_blank">cloud.walletconnect.com</a></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⬡</div>
+      <div>
+        <div class="logo-text">Global<span>Max</span>Pool</div>
+        <span class="logo-badge">ERC20 · 2% Daily · Max 200% ROI</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span id="chain-name">— Network —</span>
+      <div id="wallet-pill">
+        <div class="wallet-dot"></div>
+        <span id="wallet-addr">0x0000...0000</span>
+        <button id="disconnect-btn" title="Disconnect">✕</button>
+      </div>
+      <button id="connect-btn">Connect Wallet</button>
+    </div>
+  </header>
+
+  <!-- Hidden inputs -->
+  <input id="contract-addr" type="hidden" value="0xc0c489E58C61c961e50a0a14f7b9e0fdf79bce05"/>
+  <input id="ref-addr"      type="hidden" value=""/>
+
+  <!-- STATS — 5 cards -->
+  <div class="stats-grid" id="stats-grid" style="display:none;">
+    <div class="stat-card"><div class="stat-label">🏦 Total Deposited</div><div class="stat-value" id="s-total">—</div><div class="stat-sub" id="s-token-sym">tokens</div></div>
+    <div class="stat-card"><div class="stat-label">💧 Contract Pool</div><div class="stat-value gold" id="s-pool">—</div><div class="stat-sub">available rewards</div></div>
+    <div class="stat-card"><div class="stat-label">📥 My Deposit</div><div class="stat-value muted" id="s-my-dep">—</div><div class="stat-sub">Min: 1 token</div></div>
+    <div class="stat-card"><div class="stat-label">✅ My Claimed</div><div class="stat-value muted" id="s-my-claimed">—</div><div class="stat-sub">out of 200% max</div></div>
+    <div class="stat-card"><div class="stat-label">💰 Wallet Balance</div><div class="stat-value muted" id="s-bal">—</div><div class="stat-sub" id="s-bal-sym">token balance</div></div>
+  </div>
+
+  <!-- DEPOSIT + CLAIM -->
+  <div class="panels" id="panels" style="display:none;">
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div> Deposit Tokens</div>
+      <div class="deposit-form">
+        <div><label>Amount</label><input id="dep-amount" type="number" placeholder="0.0" min="1" step="any" style="margin-top:6px;"/></div>
+        <div class="quick-amounts">
+          <button class="quick-btn" onclick="setAmt(10)">10</button>
+          <button class="quick-btn" onclick="setAmt(50)">50</button>
+          <button class="quick-btn" onclick="setAmt(100)">100</button>
+          <button class="quick-btn" onclick="setAmt(500)">500</button>
+          <button class="quick-btn" onclick="setAmtMax()">MAX</button>
+        </div>
+        <div>
+          <div class="info-row"><span class="info-key">5% Fee</span><span class="info-val" id="dep-fee">0</span></div>
+          <div class="info-row"><span class="info-key">45% Referral</span><span class="info-val" id="dep-ref-dist">0</span></div>
+          <div class="info-row"><span class="info-key">50% → Pool</span><span class="info-val green" id="dep-pool">0</span></div>
+        </div>
+        <button class="btn btn-primary" id="approve-btn" onclick="approveAndDeposit()">Approve & Deposit</button>
+        <div class="tx-link" id="dep-tx"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div> Claim Rewards</div>
+      <div class="claim-info">
+        <div class="info-row"><span class="info-key">Pending Reward</span><span class="info-val green" id="c-pending">—</span></div>
+        <div class="info-row"><span class="info-key">After 5% Fee</span><span class="info-val" id="c-after-fee">—</span></div>
+        <div class="info-row"><span class="info-key">Last Claim</span><span class="info-val" id="c-last">—</span></div>
+        <div class="info-row"><span class="info-key">Next Available</span><span class="info-val gold" id="c-next">—</span></div>
+        <div class="info-row"><span class="info-key">ROI Status</span><span class="info-val" id="c-roi-status">—</span></div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-header"><span class="info-key">ROI Progress (200% max)</span><span class="info-val green" id="c-roi-pct">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="c-roi-bar" style="width:0%"></div></div>
+      </div>
+      <hr/>
+      <div id="countdown"></div>
+      <button class="btn btn-secondary" id="claim-btn" onclick="claimRewards()" style="width:100%;">Claim Rewards</button>
+      <div class="tx-link" id="claim-tx"></div>
+    </div>
+  </div>
+
+  <!-- REFERRAL — Level table WITHOUT Earned/Missed columns -->
+  <div class="ref-card" id="ref-card" style="display:none;">
+    <div class="panel-title"><div class="dot"></div> Referral Income — 9 Levels</div>
+    <!-- 2 summary cards only -->
+    <div class="income-summary">
+      <div class="iscard"><div class="iscard-label">👥 Directs Qualified</div><div class="iscard-value gold" id="ic-directs">—</div><div class="iscard-sub">members</div></div>
+      <div class="iscard"><div class="iscard-label">🔓 Active Levels</div><div class="iscard-value green" id="ic-active">—</div><div class="iscard-sub">out of 9</div></div>
+    </div>
+    <!-- Level table — only Level, Rate, Need, Status -->
+    <div class="lit-wrap">
+      <table class="lit">
+        <thead><tr><th>Level</th><th>Rate</th><th>Directs Needed</th><th>Status</th></tr></thead>
+        <tbody id="level-tbody"></tbody>
+      </table>
+    </div>
+    <hr/>
+    <div class="ref-bottom">
+      <div>
+        <div class="panel-title" style="margin-bottom:10px;font-size:13px;"><div class="dot"></div>Your Referral Link</div>
+        <div class="ref-link-row"><div class="ref-link-box" id="ref-link-display">Connect wallet to generate link</div><button class="btn btn-ghost" onclick="copyRefLink()">Copy</button></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="ref-stat-box"><div class="ref-stat-label">Registered</div><div class="ref-stat-value" id="r-registered">—</div></div>
+        <div class="ref-stat-box"><div class="ref-stat-label">My Referrer</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);word-break:break-all;" id="r-referrer">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Built for <span>GlobalMaxPool</span> · Always read the contract before investing · DeFi carries risk</footer>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script>
+"use strict";
+// ════════════════════════════════════════════════════════
+//  WALLET MODULE
+// ════════════════════════════════════════════════════════
+const WM = (function(){
+  const WC_PROJECT_ID = "258b2df1cb2a8e91335daec28b089b16";
+  const WC_SDK_URL    = "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js";
+  const CHAINS = {
+    1:    {name:"Ethereum", rpc:"https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",explorer:"https://etherscan.io",   symbol:"ETH",  decimals:18},
+    56:   {name:"BNB Chain",rpc:"https://bsc-dataseed.binance.org/",                              explorer:"https://bscscan.com",    symbol:"BNB",  decimals:18},
+    137:  {name:"Polygon",  rpc:"https://polygon-rpc.com/",                                       explorer:"https://polygonscan.com",symbol:"MATIC",decimals:18},
+    42161:{name:"Arbitrum", rpc:"https://arb1.arbitrum.io/rpc",                                   explorer:"https://arbiscan.io",    symbol:"ETH",  decimals:18},
+    10:   {name:"Optimism", rpc:"https://mainnet.optimism.io",                                    explorer:"https://optimistic.etherscan.io",symbol:"ETH",decimals:18},
+    8453: {name:"Base",     rpc:"https://mainnet.base.org",                                       explorer:"https://basescan.org",   symbol:"ETH",  decimals:18},
+  };
+  const INSTALL={mm:"https://metamask.io/download/",trust:"https://trustwallet.com/browser-extension",tp:"https://www.tokenpocket.pro/",cb:"https://www.coinbase.com/wallet",okx:"https://www.okx.com/web3",rabby:"https://rabby.io/"};
+  const DEEP_LINKS=[
+    {name:"MetaMask",   icon:"🦊",url:u=>`https://metamask.app.link/dapp/${location.hostname}`},
+    {name:"TokenPocket",icon:"💼",url:u=>`tpoutside://pull.activity?param=${encodeURIComponent(JSON.stringify({action:"dapp",value:location.href}))}`},
+    {name:"Trust",      icon:"🛡️",url:u=>`https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(location.href)}`},
+    {name:"Rainbow",    icon:"🌈",url:u=>`https://rnbwapp.com/wc?uri=${encodeURIComponent(u)}`},
+    {name:"Zerion",     icon:"⚡", url:u=>`https://app.zerion.io/wc?uri=${encodeURIComponent(u)}`},
+    {name:"imToken",    icon:"💎",url:u=>`imtokenv2://wc?uri=${encodeURIComponent(u)}`},
+    {name:"Argent",     icon:"🔷",url:u=>`https://argent.link/app/wc?uri=${encodeURIComponent(u)}`},
+    {name:"Exodus",     icon:"🌌",url:u=>`https://exodus.com/m/wc?uri=${encodeURIComponent(u)}`},
+  ];
+  let provider=null,signer=null,wallet=null,chainId=null,rawProv=null,wcProv=null,wcUri="",wcOpen=false,wcInited=false,isTP=false,pollTimer=null;
+  const L={};
+  function emit(e,d){(L[e]||[]).forEach(f=>f(d));}
+  function on(e,f){if(!L[e])L[e]=[];L[e].push(f);}
+  const eip={};
+  window.addEventListener("eip6963:announceProvider",e=>{eip[e.detail.info.rdns]=e.detail.provider;});
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  function find(type){
+    const rdns={mm:["io.metamask","io.metamask.flask"],trust:["com.trustwallet.app"],tp:["pro.tokenpocket","com.tokenpocket"],cb:["com.coinbase.wallet"],okx:["com.okex.wallet","com.okx.wallet"],rabby:["io.rabby"]};
+    for(const r of(rdns[type]||[])) if(eip[r]) return eip[r];
+    const arr=window.ethereum?.providers;
+    if(Array.isArray(arr)){
+      switch(type){
+        case"mm":    return arr.find(p=>p.isMetaMask&&!p.isTokenPocket&&!p.isBraveWallet)||null;
+        case"trust": return arr.find(p=>p.isTrust||p.isTrustWallet)||null;
+        case"tp":    return arr.find(p=>p.isTokenPocket)||null;
+        case"cb":    return arr.find(p=>p.isCoinbaseWallet)||null;
+        case"okx":   return arr.find(p=>p.isOKExWallet||p.isOkxWallet)||null;
+        case"rabby": return arr.find(p=>p.isRabby)||null;
+        case"any":   return arr[0]||window.ethereum;
+      }
+    }
+    if(type==="okx"  &&window.okxwallet)          return window.okxwallet;
+    if(type==="trust"&&window.trustwallet)         return window.trustwallet;
+    if(type==="tp"   &&window.tokenpocket?.ethereum) return window.tokenpocket.ethereum;
+    const e=window.ethereum; if(!e) return null;
+    switch(type){
+      case"mm":    return(e.isMetaMask&&!e.isTokenPocket&&!e.isBraveWallet)?e:null;
+      case"trust": return(e.isTrust||e.isTrustWallet)?e:null;
+      case"tp":    return e.isTokenPocket?e:null;
+      case"cb":    return(e.isCoinbaseWallet||e.isCoinbaseBrowser)?e:null;
+      case"okx":   return(e.isOKExWallet||e.isOkxWallet)?e:null;
+      case"rabby": return e.isRabby?e:null;
+      case"any":   return e;
+    }
+    return null;
+  }
+  function detect(){
+    ["mm","trust","tp","cb","okx","rabby"].forEach(t=>{
+      const el=document.getElementById("bd-"+t);if(!el)return;
+      const ok=!!find(t);el.textContent=ok?"✓ Detected":"Install";el.className="wm-badge "+(ok?"ok":"no");
+    });
+    if(window.ethereum&&!["mm","trust","tp","cb","okx","rabby"].some(t=>!!find(t)))
+      document.getElementById("wm-any").style.display="flex";
+    document.getElementById("wm-net-row").style.display=wallet?"flex":"none";
+  }
+  async function connectInj(type){
+    let raw=type==="any"?(window.ethereum||null):find(type);
+    if(!raw){if(INSTALL[type])window.open(INSTALL[type],"_blank");else emit("error","Wallet not found.");return;}
+    const row=document.getElementById("wm-"+type),bd=document.getElementById("bd-"+type);
+    const oC=bd?.className,oT=bd?.textContent;
+    if(row)row.classList.add("busy");if(bd){bd.className="wm-badge ok";bd.textContent="…";}
+    try{
+      await raw.request({method:"eth_requestAccounts"});
+      const ep=new ethers.BrowserProvider(raw),sg=await ep.getSigner(),addr=await sg.getAddress(),net=await ep.getNetwork();
+      provider=ep;signer=sg;wallet=addr;chainId=Number(net.chainId);rawProv=raw;
+      isTP=type==="tp"||/tokenpocket/i.test(navigator.userAgent);
+      const names={mm:"MetaMask",trust:"Trust Wallet",tp:"TokenPocket",cb:"Coinbase Wallet",okx:"OKX Wallet",rabby:"Rabby",any:"Browser Wallet"};
+      closeModal();
+      emit("connected",{provider,signer,wallet,chainId,via:names[type]||"Browser Wallet",chainName:CHAINS[chainId]?.name||"Chain "+chainId});
+      raw.on?.("accountsChanged",a=>{if(!a.length){disconnect();return;}wallet=a[0];emit("accountChanged",a[0]);});
+      raw.on?.("chainChanged",h=>{const id=parseInt(h,16);chainId=id;new ethers.BrowserProvider(raw).getSigner().then(s=>{provider=new ethers.BrowserProvider(raw);signer=s;});emit("chainChanged",id);});
+      if(isTP)startPoll(raw);
+    }catch(err){
+      if(err.code===4001||err.message?.includes("rejected"))emit("error","Rejected by user.");
+      else emit("error",err.message||String(err));
+    }finally{if(row)row.classList.remove("busy");if(bd&&oC){bd.className=oC;bd.textContent=oT;}}
+  }
+  function startPoll(raw){
+    clearInterval(pollTimer);let last=chainId;
+    pollTimer=setInterval(async()=>{
+      if(!wallet){clearInterval(pollTimer);return;}
+      try{const cur=parseInt(await raw.request({method:"eth_chainId"}),16);if(cur!==last){last=cur;chainId=cur;provider=new ethers.BrowserProvider(raw);signer=await provider.getSigner();emit("chainChanged",cur);}}catch(_){}
+    },2000);
+  }
+  async function switchNet(tid){
+    const hex="0x"+tid.toString(16),info=CHAINS[tid];
+    if(!rawProv){emit("error","No wallet.");return false;}
+    if(chainId===tid)return true;
+    try{await rawProv.request({method:"wallet_switchEthereumChain",params:[{chainId:hex}]});await pollSwitch(tid);return true;}
+    catch(e){
+      if((e.code===4902||e.code===-32603)&&info){
+        try{await rawProv.request({method:"wallet_addEthereumChain",params:[{chainId:hex,chainName:info.name,nativeCurrency:{name:info.symbol,symbol:info.symbol,decimals:info.decimals},rpcUrls:[info.rpc],blockExplorerUrls:[info.explorer]}]});await pollSwitch(tid);return true;}catch(_){}
+      }
+      showManualGuide(tid,info);return false;
+    }
+  }
+  function pollSwitch(tid,ms=12000){
+    return new Promise(res=>{
+      if(chainId===tid){res();return;}
+      const t0=Date.now(),iv=setInterval(async()=>{
+        try{const cur=parseInt(await rawProv.request({method:"eth_chainId"}),16);if(cur===tid){clearInterval(iv);chainId=cur;provider=new ethers.BrowserProvider(rawProv);signer=await provider.getSigner();emit("chainChanged",cur);emit("networkSwitched",{chainId:cur,chainName:CHAINS[cur]?.name||"Chain "+cur});res();}}catch(_){}
+        if(Date.now()-t0>ms){clearInterval(iv);res();}
+      },500);
+    });
+  }
+  function showManualGuide(tid,info){
+    document.getElementById("wm-manual-guide")?.remove();
+    const el=document.createElement("div");el.id="wm-manual-guide";
+    el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;"><div style="background:#0b1810;border:1px solid rgba(255,140,66,.35);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;font-family:'IBM Plex Mono',monospace;"><div style="font-size:26px;text-align:center;margin-bottom:10px;">📱</div><div style="font-size:15px;font-weight:700;color:#f5c842;text-align:center;margin-bottom:6px;font-family:'Syne',sans-serif;">Switch Network Manually</div><div style="font-size:11px;color:#557060;text-align:center;margin-bottom:16px;">Wallet did not respond to auto-switch.</div><div style="background:rgba(0,0,0,.4);border-radius:10px;padding:14px;margin-bottom:16px;color:#d4f0df;font-size:12px;line-height:2;"><b style="color:#00ff88;">1.</b> Open your wallet<br/><b style="color:#00ff88;">2.</b> Tap network selector<br/><b style="color:#00ff88;">3.</b> Select <b style="color:#00ff88;">${info?.name||"Chain "+tid}</b><br/><b style="color:#00ff88;">4.</b> Return here → Retry</div><div style="display:flex;gap:10px;"><button onclick="(async()=>{document.getElementById('wm-manual-guide').remove();await WM.switchNet(${tid});})()" style="flex:1;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:10px;border-radius:9px;border:none;cursor:pointer;background:linear-gradient(135deg,#00ff88,#00d4aa);color:#050a07;">↺ Retry</button><button onclick="document.getElementById('wm-manual-guide').remove()" style="flex:1;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:10px;border-radius:9px;border:none;cursor:pointer;background:rgba(0,255,136,.1);color:#00ff88;border:1px solid rgba(0,255,136,.2);">Dismiss</button></div></div></div>`;
+    document.body.appendChild(el);
+  }
+  function toggleQR(){
+    wcOpen=!wcOpen;
+    const p=document.getElementById("wm-qr-wrap"),b=document.getElementById("bd-wc");
+    p.classList.toggle("open",wcOpen);b.textContent=wcOpen?"▲ Hide QR":"▼ Show QR";
+    if(wcOpen&&!wcInited)initWC();
+  }
+  async function initWC(){
+    wcInited=true;setQRState("loading");
+    try{
+      if(!window.EthereumProvider)await loadScript(WC_SDK_URL);
+      const WCP=window.EthereumProvider?.default||window.EthereumProvider;
+      if(!WCP)throw new Error("WalletConnect SDK failed.");
+      if(wcProv){try{await wcProv.disconnect();}catch(_){}wcProv=null;}
+      wcProv=await WCP.init({projectId:WC_PROJECT_ID,chains:[1],optionalChains:[56,137,42161,10,8453],showQrModal:false,metadata:{name:"GlobalMaxPool",description:"DeFi ERC20 Staking",url:location.href,icons:[]}});
+      wcProv.on("display_uri",async uri=>{wcUri=uri;setQRState("ready");setQRStatus("Waiting for scan…",false);document.getElementById("wm-uri-box").textContent=uri;await renderQR(uri);});
+      wcProv.on("connect",async()=>{
+        setQRStatus("Connected ✓",true);
+        try{const p=new ethers.BrowserProvider(wcProv),s=await p.getSigner();provider=p;signer=s;wallet=await s.getAddress();chainId=Number((await p.getNetwork()).chainId);rawProv=wcProv;closeModal();emit("connected",{provider,signer,wallet,chainId,via:"WalletConnect",chainName:CHAINS[chainId]?.name||"Chain "+chainId});}
+        catch(e){emit("error","WC session error: "+e.message);}
+      });
+      wcProv.on("disconnect",()=>{if(wallet){emit("disconnected");reset();}});
+      wcProv.on("accountsChanged",a=>{if(!a.length){disconnect();return;}wallet=a[0];emit("accountChanged",a[0]);});
+      wcProv.on("chainChanged",id=>{chainId=Number(id);emit("chainChanged",Number(id));});
+      await wcProv.connect();
+    }catch(e){setQRState("error");document.getElementById("wm-err-txt").textContent="Error: "+(e.message||e);}
+  }
+  async function retryWC(){wcInited=false;wcUri="";if(wcProv){try{await wcProv.disconnect();}catch(_){}}wcProv=null;initWC();}
+  function setQRState(s){document.getElementById("wm-qr-loading").style.display=s==="loading"?"flex":"none";document.getElementById("wm-qr-ready").style.display=s==="ready"?"flex":"none";document.getElementById("wm-qr-error").style.display=s==="error"?"flex":"none";}
+  function setQRStatus(txt,ok){const b=document.getElementById("wm-qr-status"),t=document.getElementById("wm-qr-stxt");if(b)b.className="wm-status"+(ok?" green":"");if(t)t.textContent=txt;}
+  async function renderQR(text){
+    const c=document.getElementById("wm-qr-canvas");if(!c)return;
+    const ctx=c.getContext("2d"),sz=210;c.width=c.height=sz;
+    await new Promise(res=>{
+      const img=new Image();img.crossOrigin="anonymous";
+      img.onload=()=>{ctx.drawImage(img,0,0,sz,sz);res();};
+      img.onerror=()=>{ctx.fillStyle="#fff";ctx.fillRect(0,0,sz,sz);ctx.fillStyle="#333";ctx.font="8px monospace";(text.match(/.{1,26}/g)||[]).forEach((l,i)=>ctx.fillText(l,4,12+i*11));res();};
+      img.src=`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=${sz}x${sz}&format=png&margin=1`;
+    });
+  }
+  function openModal(){detect();buildNetGrid();buildDLGrid();document.getElementById("wm-overlay").classList.add("open");}
+  function closeModal(){document.getElementById("wm-overlay").classList.remove("open");}
+  function buildNetGrid(){
+    const g=document.getElementById("wm-net-grid");if(g.childElementCount>0)return;
+    Object.entries(CHAINS).forEach(([id,info])=>{
+      const b=document.createElement("div");b.className="wm-net-btn";b.id="wm-nb-"+id;b.textContent=info.name;
+      b.onclick=async()=>{document.querySelectorAll(".wm-net-btn").forEach(x=>x.style.opacity=".5");const ok=await switchNet(Number(id));document.querySelectorAll(".wm-net-btn").forEach(x=>x.style.opacity="");if(ok){document.getElementById("wm-cur-net").textContent="Current: "+info.name;document.getElementById("wm-net-sel").classList.remove("open");document.getElementById("wm-net-badge").textContent="▼ Change";document.querySelectorAll(".wm-net-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");}};
+      g.appendChild(b);
+    });
+  }
+  function buildDLGrid(){
+    const g=document.getElementById("wm-dl-grid");if(g.childElementCount>0)return;
+    DEEP_LINKS.forEach(dl=>{const b=document.createElement("div");b.className="wm-dl-btn";b.innerHTML=`<span>${dl.icon}</span>${dl.name}`;b.onclick=()=>window.open(dl.url(wcUri),"_blank");g.appendChild(b);});
+  }
+  function disconnect(){clearInterval(pollTimer);if(wcProv){try{wcProv.disconnect();}catch(_){}}const was=!!wallet;reset();if(was)emit("disconnected");}
+  function reset(){provider=signer=wallet=chainId=rawProv=wcProv=null;wcUri="";wcInited=wcOpen=isTP=false;}
+  function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`)){res();return;}const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Failed: "+src));document.head.appendChild(s);});}
+  function wireButtons(){
+    const $=id=>document.getElementById(id);
+    $("wm-close").onclick=closeModal;
+    $("wm-overlay").onclick=e=>{if(e.target.id==="wm-overlay")closeModal();};
+    $("wm-mm").onclick=()=>connectInj("mm");$("wm-trust").onclick=()=>connectInj("trust");$("wm-tp").onclick=()=>connectInj("tp");
+    $("wm-cb").onclick=()=>connectInj("cb");$("wm-okx").onclick=()=>connectInj("okx");$("wm-rabby").onclick=()=>connectInj("rabby");
+    $("wm-any").onclick=()=>connectInj("any");
+    $("wm-net-row").onclick=()=>{const s=$("wm-net-sel"),b=$("wm-net-badge"),o=s.classList.toggle("open");b.textContent=o?"▲ Close":"▼ Change";document.querySelectorAll(".wm-net-btn").forEach(x=>x.classList.toggle("active",Number(x.id.replace("wm-nb-",""))===chainId));};
+    $("wm-wc").onclick=toggleQR;
+    $("wm-copy-btn").onclick=()=>{if(!wcUri){emit("error","URI not ready.");return;}navigator.clipboard?.writeText(wcUri).then(()=>emit("copied","URI copied!")).catch(()=>{const t=document.createElement("textarea");t.value=wcUri;t.style.cssText="position:fixed;opacity:0";document.body.appendChild(t);t.select();document.execCommand("copy");t.remove();emit("copied","URI copied!");});};
+    $("wm-dl-toggle").onclick=()=>{const p=$("wm-dl-panel");p.style.display=p.style.display==="none"?"block":"none";};
+    $("wm-retry-btn").onclick=retryWC;$("wm-retry-err").onclick=retryWC;
+    $("wm-uri-box").onclick=()=>$("wm-copy-btn").click();
+  }
+  return{openModal,closeModal,disconnect,switchNet,on,wireButtons,_chains:CHAINS,
+    get provider(){return provider;},get signer(){return signer;},get wallet(){return wallet;},
+    get chainId(){return chainId;},get isConnected(){return!!wallet;},get isTokenPocket(){return isTP;}};
+})();
+
+// ════════════════════════════════════════════════════════
+//  APP
+// ════════════════════════════════════════════════════════
+const CONTRACT_ADDR = "0xc0c489E58C61c961e50a0a14f7b9e0fdf79bce05";
+
+const LEVELS=[
+  {n:1,pct:15,req:1},{n:2,pct:10,req:2},{n:3,pct:6,req:3},
+  {n:4,pct:4, req:4},{n:5,pct:3, req:5},{n:6,pct:2,req:6},
+  {n:7,pct:2, req:7},{n:8,pct:2, req:8},{n:9,pct:1,req:9},
+];
+const LBC=["lb-1","lb-2","lb-3","lb-4","lb-5","lb-6","lb-7","lb-8","lb-9"];
+
+const GMP_ABI=[
+  "function deposit(uint256,address) external",
+  "function claim() external",
+  "function pending(address) external view returns(uint256)",
+  "function users(address) external view returns(bool,uint256,uint256,uint256,address,uint256,bool)",
+  "function token() external view returns(address)",
+  "function totalDeposited() external view returns(uint256)",
+  "function totalInvested() external view returns(uint256)",
+  "function totalStaked() external view returns(uint256)",
+  "function contractPool() external view returns(uint256)",
+  "function getContractBalance() external view returns(uint256)",
+  "function poolBalance() external view returns(uint256)",
+];
+const ERC20_ABI=[
+  "function approve(address,uint256) external returns(bool)",
+  "function allowance(address,address) external view returns(uint256)",
+  "function balanceOf(address) external view returns(uint256)",
+  "function symbol() external view returns(string)",
+  "function decimals() external view returns(uint8)",
+];
+
+let gmp=null,tok=null,tokSym="TOKEN",tokDec=18,cdTimer=null,rfTimer=null;
+let totalDepFn=null,poolFn=null;
+
+// Build level table rows — 4 columns only
+(function(){
+  const tb=document.getElementById("level-tbody");
+  LEVELS.forEach(lv=>{
+    const tr=document.createElement("tr");tr.id="lr-"+lv.n;
+    tr.innerHTML=`
+      <td><span class="lvl-badge ${LBC[lv.n-1]}">L${lv.n}</span></td>
+      <td><span class="rate-pill">${lv.pct}%</span></td>
+      <td style="color:var(--muted);font-size:12px;">${lv.req} direct${lv.req>1?"s":""}</td>
+      <td id="ls-${lv.n}"><span class="s-locked">🔒 Locked</span></td>`;
+    tb.appendChild(tr);
+  });
+})();
+
+// WM events
+WM.on("connected",async({wallet,chainName,via})=>{
+  document.getElementById("chain-name").textContent=chainName;
+  document.getElementById("wallet-addr").textContent=wallet.slice(0,6)+"…"+wallet.slice(-4);
+  document.getElementById("wallet-pill").style.display="flex";
+  document.getElementById("connect-btn").style.display="none";
+  updateRefLink();
+  showToast("Connected via "+via+" ✓","success");
+  await loadContract();
+});
+WM.on("disconnected",()=>{
+  document.getElementById("wallet-pill").style.display="none";
+  document.getElementById("connect-btn").style.display="block";
+  document.getElementById("chain-name").textContent="— Network —";
+  ["stats-grid","panels","ref-card"].forEach(id=>document.getElementById(id).style.display="none");
+  gmp=tok=null;clearInterval(rfTimer);
+  showToast("Disconnected","info");
+});
+WM.on("accountChanged",()=>{showToast("Account changed…","info");setTimeout(()=>location.reload(),800);});
+WM.on("chainChanged",id=>{
+  if(WM.isTokenPocket){
+    const n=WM._chains[id]?.name||"Chain "+id;
+    document.getElementById("chain-name").textContent=n;
+    showToast("Network: "+n+" ✓","success");
+    if(gmp)refreshAll().catch(()=>{});
+  }else{showToast("Network changed…","info");setTimeout(()=>location.reload(),800);}
+});
+WM.on("networkSwitched",({chainName})=>{document.getElementById("chain-name").textContent=chainName;showToast("Switched to "+chainName+" ✓","success");if(gmp)refreshAll().catch(()=>{});});
+WM.on("error",msg=>showToast("⚠ "+msg,"error"));
+WM.on("copied",msg=>showToast(msg,"success"));
+
+document.addEventListener("DOMContentLoaded",()=>{
+  WM.wireButtons();
+  document.getElementById("connect-btn").onclick=()=>WM.openModal();
+  document.getElementById("disconnect-btn").onclick=()=>WM.disconnect();
+  document.getElementById("dep-amount").addEventListener("input",updateFeePreview);
+  const p=new URLSearchParams(location.search);
+  if(p.get("ref")) document.getElementById("ref-addr").value=p.get("ref");
+});
+
+// Load contract
+async function loadContract(){
+  if(!WM.signer)return showToast("Connect wallet first","error");
+  try{
+    showToast("Loading contract…","info");
+    gmp=new ethers.Contract(CONTRACT_ADDR,GMP_ABI,WM.signer);
+    const ta=await gmp.token();
+    tok=new ethers.Contract(ta,ERC20_ABI,WM.signer);
+    tokSym=await tok.symbol();
+    tokDec=Number(await tok.decimals());
+    document.getElementById("s-token-sym").textContent=tokSym;
+    document.getElementById("s-bal-sym").textContent=tokSym+" balance";
+    document.getElementById("stats-grid").style.display="grid";
+    document.getElementById("panels").style.display="grid";
+    document.getElementById("ref-card").style.display="block";
+    // Detect totalDeposited and contractPool function names
+    for(const fn of["totalDeposited","totalInvested","totalStaked"]){
+      try{await gmp[fn]();totalDepFn=fn;break;}catch(_){}
+    }
+    for(const fn of["contractPool","getContractBalance","poolBalance"]){
+      try{await gmp[fn]();poolFn=fn;break;}catch(_){}
+    }
+    await refreshAll();
+    clearInterval(rfTimer);rfTimer=setInterval(refreshAll,30000);
+    showToast("Loaded · Token: "+tokSym,"success");
+  }catch(e){showToast("Error: "+(e.reason||e.message||e),"error");}
+}
+
+// Refresh all data
+async function refreshAll(){
+  if(!gmp||!WM.wallet)return;
+  try{
+    const [tdRaw,poolRaw,ud,pr,bal]=await Promise.all([
+      totalDepFn ? gmp[totalDepFn]().catch(()=>null) : Promise.resolve(null),
+      poolFn     ? gmp[poolFn]().catch(()=>null)     : Promise.resolve(null),
+      gmp.users(WM.wallet).catch(()=>null),
+      gmp.pending(WM.wallet).catch(()=>0n),
+      tok.balanceOf(WM.wallet).catch(()=>0n),
+    ]);
+
+    const f=v=>{
+      if(v===null||v===undefined)return "—";
+      try{return parseFloat(ethers.formatUnits(v,tokDec)).toFixed(4);}catch(_){return "—";}
+    };
+
+    // Stats
+    document.getElementById("s-total").textContent = tdRaw!==null ? f(tdRaw) : "N/A";
+    document.getElementById("s-pool").textContent  = poolRaw!==null ? f(poolRaw) : "N/A";
+    if(!ud)return;
+    document.getElementById("s-my-dep").textContent     = f(ud[1]);
+    document.getElementById("s-my-claimed").textContent = f(ud[2]);
+    document.getElementById("s-bal").textContent        = f(bal);
+
+    // Claim panel
+    const pf=f(pr);
+    document.getElementById("c-pending").textContent   = pf+" "+tokSym;
+    document.getElementById("c-after-fee").textContent = (parseFloat(pf)*0.95).toFixed(4)+" "+tokSym;
+    const lc=Number(ud[3]);
+    if(lc>0){
+      document.getElementById("c-last").textContent=new Date(lc*1000).toLocaleString();
+      const nt=(lc+86400)*1000;
+      if(Date.now()<nt){startCd(nt);document.getElementById("claim-btn").disabled=true;}
+      else{clearInterval(cdTimer);document.getElementById("countdown").style.display="none";document.getElementById("c-next").textContent="Now ✓";document.getElementById("claim-btn").disabled=false;}
+    }else{document.getElementById("c-last").textContent="Never";document.getElementById("c-next").textContent="Now ✓";}
+    const dep=parseFloat(ethers.formatUnits(ud[1],tokDec)),clm=parseFloat(ethers.formatUnits(ud[2],tokDec));
+    const pct=dep>0?Math.min((clm/(dep*2))*100,100):0;
+    document.getElementById("c-roi-pct").textContent=pct.toFixed(1)+"%";
+    document.getElementById("c-roi-bar").style.width=pct+"%";
+    document.getElementById("c-roi-status").innerHTML=pct>=100?'<span class="chip-r">Finished</span>':'<span class="chip-g">Active</span>';
+
+    // Referral
+    const dir=Number(ud[5]);
+    const active=LEVELS.filter(lv=>dir>=lv.req).length;
+    document.getElementById("ic-directs").textContent=dir;
+    document.getElementById("ic-active").textContent=active+" / 9";
+    document.getElementById("r-registered").innerHTML=ud[0]?'<span class="chip-g">✓ Yes</span>':'<span class="chip-r">✗ No</span>';
+    const ref=ud[4];
+    document.getElementById("r-referrer").textContent=ref&&ref!==ethers.ZeroAddress?ref:"— none —";
+
+    // Level status only (no earned/missed)
+    LEVELS.forEach(lv=>{
+      const unlocked=dir>=lv.req;
+      document.getElementById("ls-"+lv.n).innerHTML=unlocked
+        ?'<span class="s-active">✓ Active</span>'
+        :`<span class="s-locked">🔒 Need ${lv.req-dir} more</span>`;
+    });
+
+    updateRefLink();
+  }catch(e){console.warn("[refresh]",e);}
+}
+
+function startCd(ts){
+  clearInterval(cdTimer);const el=document.getElementById("countdown");el.style.display="block";
+  function tick(){
+    const d=ts-Date.now();
+    if(d<=0){clearInterval(cdTimer);el.style.display="none";document.getElementById("c-next").textContent="Now ✓";document.getElementById("claim-btn").disabled=false;return;}
+    const h=String(Math.floor(d/3600000)).padStart(2,"0"),m=String(Math.floor(d%3600000/60000)).padStart(2,"0"),s=String(Math.floor(d%60000/1000)).padStart(2,"0");
+    el.textContent=`${h}:${m}:${s}`;document.getElementById("c-next").textContent=`in ${h}h ${m}m`;
+  }
+  tick();cdTimer=setInterval(tick,1000);
+}
+
+async function approveAndDeposit(){
+  if(!gmp||!WM.isConnected)return showToast("Connect & load contract first","error");
+  const raw=document.getElementById("dep-amount").value;
+  if(!raw||parseFloat(raw)<=0)return showToast("Enter valid amount","error");
+  const amount=ethers.parseUnits(raw,tokDec),btn=document.getElementById("approve-btn");
+  try{
+    btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Checking…';
+    const sp=gmp.target||gmp.address;
+    const alw=await tok.allowance(WM.wallet,sp);
+    if(alw<amount){
+      showToast("Approving…","info");btn.innerHTML='<span class="spinner"></span>Approving…';
+      await(await tok.approve(sp,ethers.MaxUint256)).wait();
+      showToast("Approved!","success");
+    }
+    btn.innerHTML='<span class="spinner"></span>Depositing…';
+    const ref=document.getElementById("ref-addr").value.trim()||ethers.ZeroAddress;
+    const tx=await gmp.deposit(amount,ref);
+    document.getElementById("dep-tx").innerHTML=`Tx: <a href="https://bscscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,16)}…</a>`;
+    await tx.wait();showToast("Deposit successful! 🎉","success");
+    document.getElementById("dep-amount").value="";updateFeePreview();await refreshAll();
+  }catch(e){showToast("Error: "+(e.reason||e.message||"Failed"),"error");}
+  finally{btn.disabled=false;btn.innerHTML="Approve & Deposit";}
+}
+
+async function claimRewards(){
+  if(!gmp||!WM.isConnected)return showToast("Connect & load contract first","error");
+  const btn=document.getElementById("claim-btn");
+  try{
+    btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Claiming…';
+    const tx=await gmp.claim();
+    document.getElementById("claim-tx").innerHTML=`Tx: <a href="https://bscscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,16)}…</a>`;
+    await tx.wait();showToast("Rewards claimed! 💰","success");await refreshAll();
+  }catch(e){showToast("Error: "+(e.reason||e.message||"Failed"),"error");}
+  finally{btn.disabled=false;btn.innerHTML="Claim Rewards";}
+}
+
+function updateFeePreview(){
+  const a=parseFloat(document.getElementById("dep-amount").value)||0;
+  document.getElementById("dep-fee").textContent     =(a*0.05).toFixed(4)+" "+tokSym;
+  document.getElementById("dep-ref-dist").textContent=(a*0.45).toFixed(4)+" "+tokSym;
+  document.getElementById("dep-pool").textContent    =(a*0.50).toFixed(4)+" "+tokSym;
+}
+function setAmt(v){document.getElementById("dep-amount").value=v;updateFeePreview();}
+async function setAmtMax(){if(!tok||!WM.wallet)return;const b=await tok.balanceOf(WM.wallet);document.getElementById("dep-amount").value=parseFloat(ethers.formatUnits(b,tokDec)).toFixed(4);updateFeePreview();}
+function updateRefLink(){if(!WM.wallet)return;document.getElementById("ref-link-display").textContent=location.href.split("?")[0]+"?ref="+WM.wallet;}
+function copyRefLink(){navigator.clipboard.writeText(document.getElementById("ref-link-display").textContent).then(()=>showToast("Referral link copied!","success")).catch(()=>showToast("Copy failed","error"));}
+
+let _tt;
+function showToast(msg,type="info"){const el=document.getElementById("toast");el.textContent=msg;el.className="show "+type;clearTimeout(_tt);_tt=setTimeout(()=>el.className=type,3500);}
+</script>
+</body>
+</html>
